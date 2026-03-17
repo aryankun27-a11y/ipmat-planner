@@ -579,7 +579,7 @@
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     document.getElementById('today-label').textContent = `${days[now.getDay()]} · ${months[now.getMonth()]} ${now.getDate()}`;
-    const ipmat = new Date('2025-05-04');
+    const ipmat = new Date('2025-05-04T23:59:59');
     const diff = Math.max(0, Math.ceil((ipmat - now) / 864e5));
     document.getElementById('cd-topbar').textContent = diff + ' days to IPMAT';
     document.getElementById('gs-left').textContent = diff;
@@ -588,7 +588,7 @@
 
   function buildGrid() {
     const start = new Date('2025-03-01');
-    const end = new Date('2025-05-04');
+    const end = new Date('2025-05-04T23:59:59');
     const examDates = new Set(['2025-05-04']);
     const grid = document.getElementById('day-grid');
     grid.innerHTML = '';
