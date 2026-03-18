@@ -418,7 +418,7 @@
   <div class="intention-wrap">
     <div class="blabel">One intention for today</div>
     <textarea class="intention-input" id="intention" rows="1"
-      placeholder="e.g. I will finish two VA drills without picking up my phone…"
+      placeholder="Write your intention for today…"
       oninput="autoResize(this); saveIntention()"></textarea>
   </div>
 
@@ -561,13 +561,21 @@
 
   let sessions = load('ap3_sessions', {});
   let focusScore = load('ap3_focus', {});
-  let tasks = load('ap3_tasks', [
+
+  const DEFAULT_TASKS = [
     { id: 1, text: 'SC drill — 10 questions', tag: 'va', done: false },
     { id: 2, text: 'Parajumbles — anchor method, 8 Qs', tag: 'va', done: false },
     { id: 3, text: 'QA — 20 arithmetic problems, timed', tag: 'qa', done: false },
     { id: 4, text: 'RC — 1 passage, inference + main idea only', tag: 'va', done: false },
-  ]);
-  let intention = load('ap3_intention', '');
+  ];
+  const savedTaskDate = load('ap3_tasks_date', null);
+  let tasks = (savedTaskDate === todayStr) ? load('ap3_tasks', DEFAULT_TASKS) : JSON.parse(JSON.stringify(DEFAULT_TASKS));
+  if (savedTaskDate !== todayStr) { save('ap3_tasks', tasks); save('ap3_tasks_date', todayStr); }
+
+  const savedIntentionDate = load('ap3_intention_date', null);
+  let intention = (savedIntentionDate === todayStr) ? load('ap3_intention', '') : '';
+  if (savedIntentionDate !== todayStr) { save('ap3_intention', ''); save('ap3_intention_date', todayStr); }
+
   let examsOpen = load('ap3_exopen', false);
   let chartMode = 'sessions';
 
