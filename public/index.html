@@ -689,7 +689,10 @@
   document.getElementById('add-input').addEventListener('keydown', e => { if (e.key === 'Enter') addCustomTask(); });
 
   function getLast7() {
-    return Array.from({ length: 7 }, (_, i) => { const d = new Date(now); d.setDate(d.getDate() - (6 - i)); return d; });
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((day === 0 ? 7 : day) - 1));
+    return Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
   }
   function switchChart(mode, el) {
     chartMode = mode;
