@@ -517,10 +517,10 @@
 
 <script>
   const EXAMS_OTHER = [
-    { name: 'IPMAT Rohtak', inst: 'IIM Rohtak', date: '2025-05-18' },
-    { name: 'JIPMAT', inst: 'IIM Jammu + Bodh Gaya', date: '2025-06-08' },
-    { name: 'SET', inst: 'Symbiosis Pune', date: '2025-05-10' },
-    { name: 'NPAT', inst: 'NMIMS Mumbai', date: '2025-05-17' },
+    { name: 'IPMAT Rohtak', inst: 'IIM Rohtak', date: '2026-05-18' },
+    { name: 'JIPMAT', inst: 'IIM Jammu + Bodh Gaya', date: '2026-06-08' },
+    { name: 'SET', inst: 'Symbiosis Pune', date: '2026-05-10' },
+    { name: 'NPAT', inst: 'NMIMS Mumbai', date: '2026-05-17' },
   ];
 
   const QUICK_TASKS = [
@@ -587,7 +587,7 @@
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     document.getElementById('today-label').textContent = `${days[now.getDay()]} · ${months[now.getMonth()]} ${now.getDate()}`;
-    const ipmat = new Date('2025-05-04T23:59:59');
+    const ipmat = new Date('2026-05-04T23:59:59');
     const diff = Math.max(0, Math.ceil((ipmat - now) / 864e5));
     document.getElementById('cd-topbar').textContent = diff + ' days to IPMAT';
     document.getElementById('gs-left').textContent = diff;
@@ -595,9 +595,9 @@
   }
 
   function buildGrid() {
-    const start = new Date('2025-03-01');
-    const end = new Date('2025-05-04T23:59:59');
-    const examDates = new Set(['2025-05-04']);
+    const start = new Date('2026-03-01');
+    const end = new Date('2026-05-04T23:59:59');
+    const examDates = new Set(['2026-05-04']);
     const grid = document.getElementById('day-grid');
     grid.innerHTML = '';
     let d = new Date(start);
@@ -742,7 +742,7 @@
     document.getElementById('exams-body').innerHTML = EXAMS_OTHER.map(e => {
       const edate = new Date(e.date);
       const diff = Math.max(0, Math.ceil((edate - now) / 864e5));
-      const start = new Date('2025-03-01');
+      const start = new Date('2026-03-01');
       const pct = Math.min(100, Math.round(Math.ceil((now - start) / 864e5) / Math.ceil((edate - start) / 864e5) * 100));
       const urg = diff < 15;
       return `<div class="exam-row">
@@ -753,7 +753,7 @@
         </div>
         <div style="padding-left:16px;text-align:right">
           <div class="exam-days ${urg ? 'urgent' : ''}">${diff}</div>
-          <div class="exam-date">${months[edate.getMonth()]} ${edate.getDate()}, 2025</div>
+          <div class="exam-date">${months[edate.getMonth()]} ${edate.getDate()}, 2026</div>
         </div>
       </div>`;
     }).join('');
