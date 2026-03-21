@@ -417,6 +417,14 @@
     height: 100%;
     overflow: visible;
   }
+  .stack-seg { rx: 3; }
+  .focus-line {
+    fill: none;
+    stroke: var(--amber);
+    stroke-width: 2.25;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
   .line-path {
     fill: none;
     stroke-width: 2.25;
@@ -891,7 +899,7 @@
     yAxis.innerHTML = '';
     const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     const week = getLast7();
-    const maxSessions = 1;
+    const maxSessions = 4;
     const maxFocus = 10;
     const yMax = chartMode === 'sessions' ? maxSessions : maxFocus;
     const ticks = 5;
@@ -919,9 +927,43 @@
     const xAt = i => left + (i * stepX);
     const yAt = v => top + (h - ((v / yMax) * h));
 
-    const makeSeries = (vals, color) => {
-      const pts = vals.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
-      const toSmoothPath = arr => {
+    if (chartMode === 'sessions') {
+      const stackOrder = [
+        { key: 'rev', color: '#70c898' },
+        { key: 'mock', color: '#e8c870' },
+        { key: 'qa', color: '#7aabde' },
+        { key: 'va', color: '#e8a070' },
+      ];
+      const barWidth = Math.max(16, Math.min(28, stepX * 0.46));
+      week.forEach((d, i) => {
+        const s = sessions[d.toDateString()] || {};
+        const total = ['va', 'qa', 'mock', 'rev'].reduce((acc, key) => acc + (s[key] ? 1 : 0), 0);
+        if (!total) return; // empty day -> no bar
+
+        let cumulative = 0;
+        stackOrder.forEach(({ key, color }) => {
+          if (!s[key]) return;
+          const segStart = cumulative;
+          cumulative += 1;
+          const yTop = yAt(cumulative);
+          const yBottom = yAt(segStart);
+          const rect = document.createElementNS(NS, 'rect');
+          rect.setAttribute('class', 'stack-seg');
+          rect.setAttribute('x', String(xAt(i) - (barWidth / 2)));
+          rect.setAttribute('y', String(yTop));
+          rect.setAttribute('width', String(barWidth));
+          rect.setAttribute('height', String(Math.max(2, yBottom - yTop - 1)));
+          rect.setAttribute('fill', color);
+          svg.appendChild(rect);
+        });
+      });
+    } else {
+      const points = week.map((d, i) => {
+        const score = focusScore[d.toDateString()];
+        if (!score) return null;
+        return { x: xAt(i), y: yAt(score), score };
+      });
+      const buildSmoothPath = arr => {
         if (!arr.length) return '';
         if (arr.length === 1) return `M ${arr[0].x} ${arr[0].y}`;
         let d = `M ${arr[0].x} ${arr[0].y}`;
@@ -933,43 +975,26 @@
         }
         return d;
       };
-      const path = document.createElementNS(NS, 'path');
-      path.setAttribute('class', 'line-path');
-      path.setAttribute('d', toSmoothPath(pts));
-      path.setAttribute('stroke', color);
-      svg.appendChild(path);
-      pts.forEach(p => {
-        const dot = document.createElementNS(NS, 'circle');
-        dot.setAttribute('class', 'line-dot');
-        dot.setAttribute('cx', p.x);
-        dot.setAttribute('cy', p.y);
-        dot.setAttribute('fill', color);
-        svg.appendChild(dot);
+      let run = [];
+      points.forEach((p, idx) => {
+        if (p) run.push(p);
+        const endsRun = !p || idx === points.length - 1;
+        if (endsRun && run.length) {
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('class', 'focus-line');
+          path.setAttribute('d', buildSmoothPath(run));
+          svg.appendChild(path);
+          run.forEach(pt => {
+            const dot = document.createElementNS(NS, 'circle');
+            dot.setAttribute('class', 'line-dot');
+            dot.setAttribute('cx', pt.x);
+            dot.setAttribute('cy', pt.y);
+            dot.setAttribute('fill', '#c97b2a');
+            svg.appendChild(dot);
+          });
+          run = [];
+        }
       });
-    };
-
-    if (chartMode === 'sessions') {
-      const series = [
-        { key: 'va', color: '#e8a070' },
-        { key: 'qa', color: '#7aabde' },
-        { key: 'mock', color: '#e8c870' },
-        { key: 'rev', color: '#70c898' },
-      ];
-      const subjectDailyCounts = series.reduce((acc, item) => ({ ...acc, [item.key]: [] }), {});
-      week.forEach(d => {
-        const s = sessions[d.toDateString()] || {};
-        series.forEach(({ key }) => {
-          // keep each subject as its own sequence (0/1 today)
-          subjectDailyCounts[key].push(s[key] ? 1 : 0);
-        });
-      });
-      series.forEach(({ key, color }) => {
-        const vals = subjectDailyCounts[key];
-        makeSeries(vals, color);
-      });
-    } else {
-      const vals = week.map(d => focusScore[d.toDateString()] || 0);
-      makeSeries(vals, '#c97b2a');
     }
 
     week.forEach((d, i) => {
