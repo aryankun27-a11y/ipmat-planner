@@ -397,9 +397,7 @@
   .chart-area {
     flex: 1;
     height: 220px;
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
+    display: block;
     padding: 18px 4px 26px;
     position: relative;
     background:
@@ -414,32 +412,23 @@
     border: 1px solid #eee7dc;
     border-radius: 10px;
   }
-  .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; min-width: 0; }
-  .bar-stack {
-    width: 100%; display: flex; flex-direction: column;
-    justify-content: flex-end; height: 100%; gap: 2px; align-items: center;
+  .chart-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
   }
-  .bar-seg { width: 72%; border-radius: 4px 4px 0 0; min-height: 0; transition: height .35s ease; }
-  .bar-seg.va { background: #e8a070; }
-  .bar-seg.qa { background: #7aabde; }
-  .bar-seg.mock { background: #e8c870; }
-  .bar-seg.rev { background: #70c898; }
-  .bar-total {
-    position: absolute;
-    top: -16px;
-    left: 50%;
-    transform: translateX(-50%);
+  .line-path {
+    fill: none;
+    stroke-width: 2.25;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .line-dot { r: 3.5; stroke: #fff; stroke-width: 1.5; }
+  .x-day {
     font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: var(--ink2);
-    line-height: 1;
-    white-space: nowrap;
-    pointer-events: none;
-  }
-  .bar-day {
-    font-family: 'DM Mono', monospace; font-size: 9px; color: var(--ink3);
-    position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
-    white-space: nowrap;
+    font-size: 9px;
+    fill: var(--ink3);
+    text-anchor: middle;
   }
   .chart-legend {
     display: flex;
@@ -684,14 +673,9 @@
   let sessions = load('ap3_sessions', {});
   let focusScore = load('ap3_focus', {});
 
-  const DEFAULT_TASKS = [
-    { id: 1, text: 'SC drill — 10 questions', tag: 'va', done: false },
-    { id: 2, text: 'Parajumbles — anchor method, 8 Qs', tag: 'va', done: false },
-    { id: 3, text: 'QA — 20 arithmetic problems, timed', tag: 'qa', done: false },
-    { id: 4, text: 'RC — 1 passage, inference + main idea only', tag: 'va', done: false },
-  ];
+  const DEFAULT_TASKS = [];
   const savedTaskDate = load('ap3_tasks_date', null);
-  let tasks = (savedTaskDate === getTodayStr()) ? load('ap3_tasks', DEFAULT_TASKS) : JSON.parse(JSON.stringify(DEFAULT_TASKS));
+  let tasks = (savedTaskDate === getTodayStr()) ? load('ap3_tasks', DEFAULT_TASKS) : [];
   if (savedTaskDate !== getTodayStr()) { save('ap3_tasks', tasks); save('ap3_tasks_date', getTodayStr()); }
 
   const savedIntentionDate = load('ap3_intention_date', null);
@@ -705,7 +689,7 @@
     const todayStr = getTodayStr();
     const taskDate = load('ap3_tasks_date', null);
     if (taskDate !== todayStr) {
-      tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS));
+      tasks = [];
       save('ap3_tasks', tasks);
       save('ap3_tasks_date', todayStr);
     } else {
@@ -890,10 +874,7 @@
     yAxis.innerHTML = '';
     const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     const week = getLast7();
-    const maxSessions = Math.max(4, ...week.map(d => {
-      const s = sessions[d.toDateString()] || {};
-      return ['va', 'qa', 'mock', 'rev'].reduce((acc, key) => acc + (s[key] ? 1 : 0), 0);
-    }));
+    const maxSessions = 1;
     const maxFocus = 10;
     const yMax = chartMode === 'sessions' ? maxSessions : maxFocus;
     const ticks = 5;
@@ -905,41 +886,68 @@
       yAxis.appendChild(t);
     }
 
-    week.forEach(d => {
-      const ds = d.toDateString();
-      const grp = document.createElement('div'); grp.className = 'bar-group';
-      const stack = document.createElement('div'); stack.className = 'bar-stack';
-      const value = document.createElement('div');
-      value.className = 'bar-total';
-      if (chartMode === 'sessions') {
-        const s = sessions[ds] || {};
-        const total = ['va', 'qa', 'mock', 'rev'].reduce((acc, key) => acc + (s[key] ? 1 : 0), 0);
-        value.textContent = String(total);
-        grp.appendChild(value);
-        ['rev', 'mock', 'qa', 'va'].forEach(t => {
-          const seg = document.createElement('div');
-          seg.className = `bar-seg ${t}`;
-          const h = s[t] ? (100 / yMax) : 0;
-          seg.style.height = `calc(${h}% - 1px)`;
-          stack.appendChild(seg);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'chart-svg');
+    svg.setAttribute('viewBox', '0 0 700 220');
+    svg.setAttribute('preserveAspectRatio', 'none');
+
+    const left = 18;
+    const right = 18;
+    const top = 16;
+    const bottom = 28;
+    const w = 700 - left - right;
+    const h = 220 - top - bottom;
+    const stepX = w / (week.length - 1);
+    const xAt = i => left + (i * stepX);
+    const yAt = v => top + (h - ((v / yMax) * h));
+
+    const makeSeries = (vals, color) => {
+      const points = vals.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ');
+      const path = document.createElementNS(NS, 'polyline');
+      path.setAttribute('class', 'line-path');
+      path.setAttribute('points', points);
+      path.setAttribute('stroke', color);
+      svg.appendChild(path);
+      vals.forEach((v, i) => {
+        const dot = document.createElementNS(NS, 'circle');
+        dot.setAttribute('class', 'line-dot');
+        dot.setAttribute('cx', xAt(i));
+        dot.setAttribute('cy', yAt(v));
+        dot.setAttribute('fill', color);
+        svg.appendChild(dot);
+      });
+    };
+
+    if (chartMode === 'sessions') {
+      const keys = [
+        { key: 'va', color: '#e8a070' },
+        { key: 'qa', color: '#7aabde' },
+        { key: 'mock', color: '#e8c870' },
+        { key: 'rev', color: '#70c898' },
+      ];
+      keys.forEach(({ key, color }) => {
+        const vals = week.map(d => {
+          const s = sessions[d.toDateString()] || {};
+          return s[key] ? 1 : 0;
         });
-      } else {
-        const score = focusScore[ds] || 0;
-        value.textContent = String(score);
-        grp.appendChild(value);
-        const seg = document.createElement('div');
-        seg.className = 'bar-seg';
-        seg.style.background = 'var(--amber)';
-        seg.style.height = `${score / yMax * 100}%`;
-        seg.style.width = '72%';
-        stack.appendChild(seg);
-      }
-      grp.appendChild(stack);
-      const lbl = document.createElement('div'); lbl.className = 'bar-day';
+        makeSeries(vals, color);
+      });
+    } else {
+      const vals = week.map(d => focusScore[d.toDateString()] || 0);
+      makeSeries(vals, 'var(--amber)');
+    }
+
+    week.forEach((d, i) => {
+      const lbl = document.createElementNS(NS, 'text');
+      lbl.setAttribute('class', 'x-day');
+      lbl.setAttribute('x', String(xAt(i)));
+      lbl.setAttribute('y', '210');
       lbl.textContent = dayNames[d.getDay()];
-      grp.appendChild(lbl);
-      area.appendChild(grp);
+      svg.appendChild(lbl);
     });
+
+    area.appendChild(svg);
   }
 
   function buildExams() {
