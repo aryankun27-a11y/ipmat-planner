@@ -674,8 +674,24 @@
   let focusScore = load('ap3_focus', {});
 
   const DEFAULT_TASKS = [];
+  const LEGACY_DEFAULT_TASK_TEXTS = new Set([
+    'SC drill — 10 questions',
+    'Parajumbles — anchor method, 8 Qs',
+    'QA — 20 arithmetic problems, timed',
+    'RC — 1 passage, inference + main idea only',
+  ]);
+  function sanitizeTasks(rawTasks) {
+    if (!Array.isArray(rawTasks)) return [];
+    return rawTasks.filter(t =>
+      t &&
+      typeof t.text === 'string' &&
+      typeof t.tag === 'string' &&
+      !LEGACY_DEFAULT_TASK_TEXTS.has(t.text)
+    );
+  }
   const savedTaskDate = load('ap3_tasks_date', null);
-  let tasks = (savedTaskDate === getTodayStr()) ? load('ap3_tasks', DEFAULT_TASKS) : [];
+  let tasks = (savedTaskDate === getTodayStr()) ? sanitizeTasks(load('ap3_tasks', DEFAULT_TASKS)) : [];
+  if (savedTaskDate === getTodayStr()) save('ap3_tasks', tasks);
   if (savedTaskDate !== getTodayStr()) { save('ap3_tasks', tasks); save('ap3_tasks_date', getTodayStr()); }
 
   const savedIntentionDate = load('ap3_intention_date', null);
@@ -693,7 +709,8 @@
       save('ap3_tasks', tasks);
       save('ap3_tasks_date', todayStr);
     } else {
-      tasks = load('ap3_tasks', tasks);
+      tasks = sanitizeTasks(load('ap3_tasks', tasks));
+      save('ap3_tasks', tasks);
     }
 
     const intentionDate = load('ap3_intention_date', null);
@@ -903,39 +920,56 @@
     const yAt = v => top + (h - ((v / yMax) * h));
 
     const makeSeries = (vals, color) => {
-      const points = vals.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ');
-      const path = document.createElementNS(NS, 'polyline');
+      const pts = vals.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
+      const toSmoothPath = arr => {
+        if (!arr.length) return '';
+        if (arr.length === 1) return `M ${arr[0].x} ${arr[0].y}`;
+        let d = `M ${arr[0].x} ${arr[0].y}`;
+        for (let i = 1; i < arr.length; i++) {
+          const p0 = arr[i - 1];
+          const p1 = arr[i];
+          const cx = (p0.x + p1.x) / 2;
+          d += ` Q ${cx} ${p0.y}, ${p1.x} ${p1.y}`;
+        }
+        return d;
+      };
+      const path = document.createElementNS(NS, 'path');
       path.setAttribute('class', 'line-path');
-      path.setAttribute('points', points);
+      path.setAttribute('d', toSmoothPath(pts));
       path.setAttribute('stroke', color);
       svg.appendChild(path);
-      vals.forEach((v, i) => {
+      pts.forEach(p => {
         const dot = document.createElementNS(NS, 'circle');
         dot.setAttribute('class', 'line-dot');
-        dot.setAttribute('cx', xAt(i));
-        dot.setAttribute('cy', yAt(v));
+        dot.setAttribute('cx', p.x);
+        dot.setAttribute('cy', p.y);
         dot.setAttribute('fill', color);
         svg.appendChild(dot);
       });
     };
 
     if (chartMode === 'sessions') {
-      const keys = [
+      const series = [
         { key: 'va', color: '#e8a070' },
         { key: 'qa', color: '#7aabde' },
         { key: 'mock', color: '#e8c870' },
         { key: 'rev', color: '#70c898' },
       ];
-      keys.forEach(({ key, color }) => {
-        const vals = week.map(d => {
-          const s = sessions[d.toDateString()] || {};
-          return s[key] ? 1 : 0;
+      const subjectDailyCounts = series.reduce((acc, item) => ({ ...acc, [item.key]: [] }), {});
+      week.forEach(d => {
+        const s = sessions[d.toDateString()] || {};
+        series.forEach(({ key }) => {
+          // keep each subject as its own sequence (0/1 today)
+          subjectDailyCounts[key].push(s[key] ? 1 : 0);
         });
+      });
+      series.forEach(({ key, color }) => {
+        const vals = subjectDailyCounts[key];
         makeSeries(vals, color);
       });
     } else {
       const vals = week.map(d => focusScore[d.toDateString()] || 0);
-      makeSeries(vals, 'var(--amber)');
+      makeSeries(vals, '#c97b2a');
     }
 
     week.forEach((d, i) => {
